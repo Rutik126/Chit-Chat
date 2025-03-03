@@ -15,6 +15,7 @@ router.get('/', async (req, res) => {
 // Create a new user
 router.post('/', async (req, res) => {
   const user = new User({
+    email: req.body.email,
     username: req.body.username,
     password: req.body.password, // In production, hash passwords!
   });

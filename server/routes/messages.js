@@ -25,29 +25,35 @@ router.post('/', authMiddleware, async (req, res) => {
     }
   });
   
-  // Fetch messages between two users
-  router.get('/:receiver', authMiddleware, async (req, res) => {
-    const sender = req.userId;
-    const receiver = req.params.receiver;
-  
-    try {
-      const messages = await Message.find({
-        $or: [
-          { sender, receiver },
-          { sender: receiver, receiver: sender },
-        ],
-      }).sort({ timestamp: 1 });
-  
-      res.json(messages);
-    } catch (err) {
-      res.status(500).json({ message: err.message });
-    }
-  });
+// Fetch messages between two users
+router.get('/:receiver', async (req, res) => {
+  const sender = req.userId; // Get userId from the middleware
+  const receiver = req.params.receiver;
+
+  try {
+    const messages = await Message.find({
+      $or: [
+        { sender, receiver },
+        { sender: receiver, receiver: sender },
+      ],
+    }).sort({ timestamp: 1 });
+
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 // Send new message
 router.post('/', async (req, res) => {
   const { receiver, message } = req.body;
-  const sender = req.userId;
+
+  // Validate input
+  if (!receiver || !message || !message.trim()) {
+    return res.status(400).json({ message: 'Receiver and message are required' });
+  }
+
+  const sender = req.userId; // Get userId from the middleware
 
   const newMessage = new Message({ sender, receiver, message });
 
@@ -58,6 +64,7 @@ router.post('/', async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 });
+
   router.post('/upload', upload.single('file'), (req, res) => {
     const file = req.file;
     res.json({ file });

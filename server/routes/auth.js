@@ -1,64 +1,87 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const User = require('../models/User');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const User = require("../models/User");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 
-// Register a new user
-router.post('/register', async (req, res) => {
+// Sign Up
+router.post("/signup", async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    // Check if username or email already exists
+    // Check if user already exists
     const existingUser = await User.findOne({ $or: [{ username }, { email }] });
     if (existingUser) {
-      return res.status(400).json({ message: 'Username or email already exists' });
+      return res.status(400).json({ message: "Username or email already exists" });
     }
 
-    // Hash the password
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create a new user
     const user = new User({ username, email, password: hashedPassword });
     await user.save();
 
-    // Generate a JWT token
+    // Generate JWT token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '1h',
+      expiresIn: "1h",
     });
 
-    res.status(201).json({ token });
+    // Set token as HTTP-only cookie
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // Set secure only in production
+      sameSite: "Strict",
+      maxAge: 3600000, // 1 hour
+    });
+
+    res.status(201).json({ message: "User registered successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// Login a user
-router.post('/login', async (req, res) => {
+// Login
+router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Find the user
+    // Find user
     const user = await User.findOne({ username });
     if (!user) {
-      return res.status(400).json({ message: 'User not found' });
+      return res.status(400).json({ message: "User not found" });
     }
 
-    // Check the password
+    // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    // Generate a JWT token
+    // Generate JWT token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '1h',
+      expiresIn: "1h",
     });
 
-    res.json({ token });
+    // Set token as HTTP-only cookie
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+      maxAge: 3600000, // 1 hour
+    });
+
+    res.json({ message: "Logged in successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+});
+
+router.post('/logout', (req, res) => {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
+  res.json({ message: 'Logged out successfully' });
 });
 
 module.exports = router;
